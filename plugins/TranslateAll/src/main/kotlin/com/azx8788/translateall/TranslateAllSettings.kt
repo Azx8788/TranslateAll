@@ -186,8 +186,8 @@ class TranslateAllSettings(private val settings: SettingsAPI) : SettingsPage() {
         )
 
         // 上下文消息数
+        var ctxCountHolder: TextView? = null
         val ctxCountView = rowText("上下文消息数：${settings.getInt("aiContextCount", 5)} 条") {
-            val input = TextView(ctx)
             val edit = android.widget.EditText(ctx).apply {
                 setText(settings.getInt("aiContextCount", 5).toString())
                 inputType = InputType.TYPE_CLASS_NUMBER
@@ -198,11 +198,12 @@ class TranslateAllSettings(private val settings: SettingsAPI) : SettingsPage() {
                 .setPositiveButton("保存") { _, _ ->
                     val n = (edit.text.toString().toIntOrNull() ?: 5).coerceIn(1, 20)
                     settings.setInt("aiContextCount", n)
-                    ctxCountView.text = "上下文消息数：$n 条"
+                    ctxCountHolder?.text = "上下文消息数：$n 条"
                 }
                 .setNegativeButton("取消", null)
                 .show()
         }
+        ctxCountHolder = ctxCountView
         aiViews.add(ctxCountView)
 
         // 温度 SeekBar

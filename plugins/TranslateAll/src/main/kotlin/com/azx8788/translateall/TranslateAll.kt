@@ -22,12 +22,11 @@ import com.aliucord.Utils
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.api.CommandsAPI
 import com.aliucord.entities.Plugin
-import com.aliucord.patcher.Hook
-import com.aliucord.patcher.component1
-import com.aliucord.patcher.component2
+import com.aliucord.patcher.*
 import com.discord.api.commands.ApplicationCommandType
-import com.discord.api.message.Message
+import com.discord.databinding.WidgetHomeBinding
 import com.discord.databinding.WidgetChatListActionsBinding
+import com.discord.models.message.Message
 import com.discord.utilities.textprocessing.node.EditedMessageNode
 import com.discord.utilities.view.text.SimpleDraweeSpanTextView
 import com.discord.widgets.chat.list.WidgetChatList
@@ -36,7 +35,6 @@ import com.discord.widgets.chat.list.adapter.WidgetChatListAdapterItemMessage
 import com.discord.widgets.chat.list.entries.ChatListEntry
 import com.discord.widgets.chat.list.entries.MessageEntry
 import com.discord.widgets.home.WidgetHome
-import com.discord.widgets.home.WidgetHomeBinding
 import com.discord.widgets.home.WidgetHomeHeaderManager
 import com.discord.widgets.home.WidgetHomeModel
 import com.facebook.drawee.span.DraweeSpanStringBuilder
@@ -167,7 +165,8 @@ class TranslateAll : Plugin() {
             WidgetHome::class.java,
             WidgetHomeModel::class.java,
             WidgetHomeBinding::class.java,
-        ) { (_, home: WidgetHome) ->
+        ) { p ->
+            val home = p.args[0] as WidgetHome
             val toolbar = home.toolbar
             val root = toolbar.parent as? ViewGroup ?: return@after
             val ctx = toolbar.context
@@ -246,8 +245,8 @@ class TranslateAll : Plugin() {
             "onConfigure",
             Int::class.javaPrimitiveType!!,
             ChatListEntry::class.java,
-        ) { (_, _, entry: ChatListEntry) ->
-            val message = (entry as? MessageEntry)?.message ?: return@after
+        ) { p ->
+            val message = (p.args[1] as? MessageEntry)?.message ?: return@after
             if (message.isLoading) return@after
 
             val ch = message.channelId
@@ -309,24 +308,34 @@ class TranslateAll : Plugin() {
                 val builder = mDraweeStringBuilder.get(textView) as DraweeSpanStringBuilder?
                     ?: return@Hook
 
-                val mutedColor =
-                    EditedMessageNode.Companion.`access$getForegroundColorSpan`(
-                        EditedMessageNode.Companion,
-                        textView.context,
-                    )
-
                 builder.append("\n")
                 var i0 = builder.length
                 builder.append(t.tgt)
                 builder.setSpan(RelativeSizeSpan(0.87f), i0, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                builder.setSpan(mutedColor, i0, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                builder.setSpan(
+                    EditedMessageNode.Companion.`access$getForegroundColorSpan`(
+                        EditedMessageNode.Companion,
+                        textView.context,
+                    ),
+                    i0,
+                    builder.length,
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
 
                 if (appendOriginal()) {
                     val suffix = "  [原文: ${t.src.take(160)}]"
                     i0 = builder.length
                     builder.append(suffix)
                     builder.setSpan(RelativeSizeSpan(0.8f), i0, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    builder.setSpan(mutedColor, i0, builder.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    builder.setSpan(
+                        EditedMessageNode.Companion.`access$getForegroundColorSpan`(
+                            EditedMessageNode.Companion,
+                            textView.context,
+                        ),
+                        i0,
+                        builder.length,
+                        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                    )
                 }
 
                 textView.setDraweeSpanStringBuilder(builder)
@@ -416,8 +425,8 @@ class TranslateAll : Plugin() {
                 requested.isNotBlank() -> requested
                 else -> {
                     val recent = recentMessages[currentChannelId]
-                    recent?.values?.asReversed()?.firstOrNull {
-                        val c = it.content
+                    recent?.values?.toList()?.asReversed()?.firstOrNull { m ->
+                        val c = m.content
                         !c.isNullOrBlank() && !Lang.isAlreadyTarget(c, target)
                     }?.content
                 }
@@ -432,11 +441,8 @@ class TranslateAll : Plugin() {
 
             when (val outcome = Translators.translate(engine(), srcText, target, emptyList(), settings)) {
                 is TranslateOutcome.Success -> {
-                    // 手动翻译也入缓存，省 token
-                    if (!requested.isBlank()) {
-                        cache.put(srcText, outcome.text, target)
-                        scheduleCacheSave()
-                    }
+                    cache.put(srcText, outcome.text, target)
+                    scheduleCacheSave()
                     CommandsAPI.CommandResult(
                         outcome.text,
                         null,
@@ -578,7 +584,7 @@ class TranslateAll : Plugin() {
         val widget = chatListWidget ?: return
         mainHandler.post {
             try {
-                WidgetChatList.`access$getAdapter$p`(widget).notifyDataSetChanged()
+                WidgetChatList.`access$getAdapter$p`(widget)?.notifyDataSetChanged()
             } catch (ex: Exception) {
                 Utils.log("TranslateAll rerenderAll failed: ${ex.message}")
             }
