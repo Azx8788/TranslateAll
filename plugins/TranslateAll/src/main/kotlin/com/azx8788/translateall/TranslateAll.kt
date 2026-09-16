@@ -84,7 +84,7 @@ class TranslateAll : Plugin() {
     private val recentMessages = ConcurrentHashMap<Long, LinkedHashMap<Long, Message>>()
 
     private var chatListWidget: WidgetChatList? = null
-    private var topBar: View? = null
+    private var topBar: TextView? = null
 
     @Volatile
     var currentChannelId: Long = -1L
